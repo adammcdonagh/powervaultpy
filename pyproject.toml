@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "powervaultpy"
+version = "0.0.1"
+authors = [
+  { name="Adam McDonagh", email="adam@elitemonkey.net" },
+]
+license = { text = "GPLv3" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: POSIX",
+]
+keywords = ["powervault", "home", "automation"]
+dependencies = [
+  "requests >= 2.28"
+]
+description = "An integration to control the Powervault battery"
+readme = "README.md"
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+dev = [
+  "black >= 23.1.0",
+  "isort",
+  "pytest",
+  "bumpver",
+  "pre-commit"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/adammcdonagh/powervaultpy"
+"Bug Tracker" = "https://github.com/adammcdonagh/powervaultpy/issues"
+"Changelog" = "https://github.com/adammcdonagh/powervaultpy/blob/main/CHANGELOG.md"
+
+[tool.isort]
+profile = 'black'
+
+[tool.bumpver]
+current_version = "0.8.1"
+version_pattern = "MAJOR.MINOR.PATCH"
+commit_message = "bump version {old_version} -> {new_version}"
+commit = true
+tag = true
+push = true
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = [
+    'current_version = "{version}"',
+    'version = "{version}"'
+]
+
+# Include the schema JSON files in the package
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
