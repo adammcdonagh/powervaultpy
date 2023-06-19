@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "powervaultpy"
-version = "0.0.1"
+version = "0.0.4"
 authors = [
   { name="Adam McDonagh", email="adam@elitemonkey.net" },
 ]
@@ -16,7 +16,8 @@ classifiers = [
 ]
 keywords = ["powervault", "home", "automation"]
 dependencies = [
-  "requests >= 2.28"
+  "requests >= 2.28",
+  "pytz"
 ]
 description = "An integration to control the Powervault battery"
 readme = "README.md"
@@ -27,6 +28,8 @@ dev = [
   "black >= 23.1.0",
   "isort",
   "pytest",
+  "pytest-env",
+  "pytest-asyncio",
   "bumpver",
   "pre-commit"
 ]
