@@ -66,6 +66,21 @@ class PowerVault:
 
         _LOGGER.error("Failed to retrieve units")
 
+    def get_unit(self, unit_id: int) -> any:
+        """Get the unit details from the API."""
+        url = f"{self._base_url}/unit/{unit_id}"
+        unit_response = self._read_response(self._session.get(url), url)
+
+        _LOGGER.debug("Unit: %s", unit_response)
+
+        if (
+            unit_response is not None
+            and "unit" in unit_response
+        ):
+            return unit_response["unit"]
+
+        _LOGGER.error("Failed to retrieve unit")
+
     def get_account(self) -> any:
         """Get the user's account data from the API."""
         url = f"{self._base_url}/customerAccount"
