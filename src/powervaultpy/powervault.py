@@ -2,10 +2,20 @@
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytz
 import requests
+
+VALID_STATUSES = [
+    "normal",
+    "only-charge",
+    "only-discharge",
+    "force-charge",
+    "force-discharge",
+    "disable",
+    "dormant",
+]
 
 _LOGGER = logging.getLogger(__name__)
 _LOGGER.setLevel(logging.DEBUG)
@@ -134,6 +144,60 @@ class PowerVault:
 
         _LOGGER.error("Failed to retrieve data")
 
+    def get_kwh(self, data: dict) -> dict:
+        # List of attributes to retrieve from data dict
+        attributes = [
+            "batteryInputFromGrid",
+            "batteryInputFromSolar",
+            "batteryOutputConsumedByHome",
+            "batteryOutputExported",
+            "homeConsumed",
+            "gridConsumedByHome",
+            "solarConsumedByHome",
+            "solarExported",
+            "solarGenerated",
+        ]
+        # For each attribute, loop through the data dict and conver the W reading to kWh over the 5 minute period
+        totals = {}
+        for row in data:
+            for attribute in attributes:
+                if attribute in row:
+                    if attribute not in totals:
+                        totals[attribute] = 0
+                    totals[attribute] += round(row[attribute] / 1000 * (5/60), 2)
+
+        return totals
+
+    def set_battery_state(self, unit_id: str, battery_state) -> bool:
+        """Override the current battery status with the provided one."""
+        url = f"{self._base_url}/unit/{unit_id}/stateOverride"
+
+        start_time = datetime.now(pytz.timezone('UTC')).strftime("%Y-%m-%d %H:%M:%S")
+        end_time = (datetime.now(pytz.timezone('UTC')) + timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+
+        payload = {
+            "stateOverrides": [
+                {
+                    "start": start_time,
+                    "end": end_time,
+                    "state": battery_state
+                }
+            ]
+        }
+
+        _LOGGER.debug("Payload: %s", payload)
+
+        state_override_response = self._read_response(
+            self._session.post(url, json=payload), url)
+        
+        _LOGGER.debug("State Override: %s", state_override_response)
+
+        if (state_override_response is not None) and ("stateOverrides" in state_override_response) and "message" in state_override_response and state_override_response["message"] == "success":
+            return True
+        else:
+            return False
+        
+
     def get_battery_state(self, unit_id: str) -> any:
         """Query the schedule and overrides to determine the current battery state."""
         url = f"{self._base_url}/unit/{unit_id}/schedule"
@@ -147,7 +211,7 @@ class PowerVault:
         _LOGGER.debug("State Override: %s", state_override_response)
 
         # Get the current local datetime
-        current_dow = datetime.now().strftime("%A").lower()
+        current_dow = datetime.now(pytz.timezone("Europe/London")).strftime("%A").lower()
 
         # Log the current day of the week
         _LOGGER.debug("Current day of the week: %s", current_dow)

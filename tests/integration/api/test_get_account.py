@@ -75,6 +75,29 @@ def test_get_data():
     # Assert data contains 7 rows
     assert len(data) == 7
 
+def test_get_totals():
+    context = get_test_context()
+
+    client = PowerVault(context["api_key"])
+
+    # Act
+    account = client.get_account()
+    units = client.get_units(account["id"])
+
+    data = client.get_data(units[0]["id"], period="today")
+
+    totals = client.get_kwh(data)
+    print(totals)
+    
+    # homeConsumed is good
+    # solarGenerated is good
+    # solarExported is good
+    # batteryInputFromGrid is good
+    # gridConsumedByHome is good
+
+    # Solar consumed = solarConsumedByHome + batteryInputFromSolar
+    # Home consumed = homeConsumed
+
 
 def test_get_battery_state():
     context = get_test_context()
