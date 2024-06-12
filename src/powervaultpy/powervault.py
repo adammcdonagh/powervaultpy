@@ -18,7 +18,7 @@ VALID_STATUSES = [
 ]
 
 _LOGGER = logging.getLogger(__name__)
-_LOGGER.setLevel(logging.DEBUG)
+_LOGGER.setLevel(logging.INFO)
 
 class PowerVaultApiClientError(Exception):
     """Exception to indicate a general API error."""
@@ -189,14 +189,14 @@ class PowerVault:
 
         state_override_response = self._read_response(
             self._session.post(url, json=payload), url)
-        
+
         _LOGGER.debug("State Override: %s", state_override_response)
 
         if (state_override_response is not None) and ("stateOverrides" in state_override_response) and "message" in state_override_response and state_override_response["message"] == "success":
             return True
         else:
             return False
-        
+
 
     def get_battery_state(self, unit_id: str) -> any:
         """Query the schedule and overrides to determine the current battery state."""
