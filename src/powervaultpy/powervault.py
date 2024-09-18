@@ -113,14 +113,12 @@ class PowerVault:
         _LOGGER.error("Failed to retrieve account")
 
     def get_data(
-        self, unit_id: str, from_: int = -1, to: int = -1, period: str = None
+        self, unit_id: str, period: str = None
     ) -> any:
         """Get the latest metrics from the unit."""
         url = f"{self._base_url}/unit/{unit_id}/data"
 
-        if from_ > 0 and to > 0:
-            url = f"{url}?from={from_}&to={to}"
-        elif period is not None:
+        if period is not None:
             if period not in [
                 "today",
                 "yesterday",
@@ -134,6 +132,12 @@ class PowerVault:
                 "last-month",
             ]:
                 raise Exception(f"Invalid period: {period}")
+
+            if not period:
+                # If period is not set, set it to anything,
+                # because for some reason if you leave it blank you get nulls most of the time
+                period = "past_hour" # This is not a valid period, but it gets you the last live values regardless
+
             url = f"{url}?period={period}"
 
         data_response = self._read_response(self._session.get(url), url)
@@ -162,10 +166,11 @@ class PowerVault:
         for row in data:
             for attribute in attributes:
                 if attribute in row:
-                    if attribute not in totals:
+                    if attribute not in totals or not totals[attribute]:
                         totals[attribute] = 0
-                    totals[attribute] += round(row[attribute] / 1000 * (5/60), 2)
-
+                    value = row[attribute]
+                    if value:
+                        totals[attribute] += round(value / 1000 * (5/60), 2)
         return totals
 
     def set_battery_state(self, unit_id: str, battery_state) -> bool:
