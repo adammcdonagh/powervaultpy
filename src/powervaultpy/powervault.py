@@ -56,9 +56,15 @@ class PowerVault:
         self._session.headers.update(
             {
                 "x-api-key": self._api_key,
-                "accept": "application/json",
+                "accept": "*/*",
             }
         )
+
+        # Get list of header keys, and remove any that are not in the list above
+        headers = list(self._session.headers.keys())
+        for key in headers:
+            if key not in ["x-api-key", "accept"]:
+                self._session.headers.pop(key)
 
     def get_units(self, account_id: int) -> any:
         """Get the user's units from the API."""
@@ -133,12 +139,12 @@ class PowerVault:
             ]:
                 raise Exception(f"Invalid period: {period}")
 
-            if not period:
-                # If period is not set, set it to anything,
-                # because for some reason if you leave it blank you get nulls most of the time
-                period = "past_hour" # This is not a valid period, but it gets you the last live values regardless
+        if not period:
+            # If period is not set, set it to anything,
+            # because for some reason if you leave it blank you get nulls most of the time
+            period = "past_hour" # This is not a valid period, but it gets you the last live values regardless
 
-            url = f"{url}?period={period}"
+        url = f"{url}?period={period}"
 
         data_response = self._read_response(self._session.get(url), url)
         _LOGGER.debug("Data: %s", data_response)
