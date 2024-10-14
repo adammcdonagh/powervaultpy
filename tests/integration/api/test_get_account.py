@@ -136,6 +136,28 @@ def test_get_battery_state():
     print(battery_state)
 
 
+def test_set_battery_state():
+    context = get_test_context()
+
+    client = PowerVault(context["api_key"])
+
+    # Act
+    account = client.get_account()
+    units = client.get_units(account["id"])
+
+    battery_state = client.get_battery_state(units[0]["id"])
+    print(battery_state)
+
+    assert battery_state is not None
+
+    # Set the battery state to "only-charge"
+    client.set_battery_state(units[0]["id"], "only-charge")
+
+    # Get the battery state again
+    battery_state = client.get_battery_state(units[0]["id"])
+    print(battery_state)
+
+    assert battery_state == "only-charge"
 
 @pytest.mark.asyncio
 async def test_when_get_account_is_called_with_invalid_api_key():
