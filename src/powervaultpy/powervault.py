@@ -50,7 +50,7 @@ class PowerVault:
     ) -> None:
         """API Client."""
         self._api_key = api_key
-        self._base_url = "https://api.p3.powervault.co.uk/v3"
+        self._base_url = "http://rest-api-v2.powervault.co.uk"
         self._session = session or requests.Session()
 
         self._session.headers.update(
@@ -139,12 +139,8 @@ class PowerVault:
             ]:
                 raise Exception(f"Invalid period: {period}")
 
-        if not period:
-            # If period is not set, set it to anything,
-            # because for some reason if you leave it blank you get nulls most of the time
-            period = "past_hour" # This is not a valid period, but it gets you the last live values regardless
-
-        url = f"{url}?period={period}"
+        if period:
+            url = f"{url}?period={period}"
 
         data_response = self._read_response(self._session.get(url), url)
         _LOGGER.debug("Data: %s", data_response)
