@@ -50,8 +50,7 @@ class PowerVault:
     ) -> None:
         """API Client."""
         self._api_key = api_key
-        self._base_url = "http://rest-api-v2.powervault.co.uk"
-        self._base_url_state = "https://api.p3.powervault.co.uk/v3"
+        self._base_url = "https://rest-api.powervault.co.uk/v4"
         self._session = session or requests.Session()
 
         self._session.headers.update(
@@ -178,7 +177,7 @@ class PowerVault:
 
     def set_battery_state(self, unit_id: str, battery_state) -> bool:
         """Override the current battery status with the provided one."""
-        url = f"{self._base_url_state}/unit/{unit_id}/stateOverride"
+        url = f"{self._base_url}/unit/{unit_id}/stateOverride"
 
         start_time = datetime.now(pytz.timezone('UTC')).strftime("%Y-%m-%d %H:%M:%S")
         end_time = (datetime.now(pytz.timezone('UTC')) + timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")

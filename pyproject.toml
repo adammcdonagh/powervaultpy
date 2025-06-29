@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "powervaultpy"
-version = "1.0.3"
+version = "1.1.0"
 authors = [
   { name="Adam McDonagh", email="adam@elitemonkey.net" },
 ]
@@ -31,7 +31,8 @@ dev = [
   "pytest-env",
   "pytest-asyncio",
   "bumpver",
-  "pre-commit"
+  "pre-commit",
+  "python-dotenv",
 ]
 
 [project.urls]
@@ -43,7 +44,7 @@ dev = [
 profile = 'black'
 
 [tool.bumpver]
-current_version = "1.0.3"
+current_version = "1.1.0"
 version_pattern = "MAJOR.MINOR.PATCH"
 commit_message = "bump version {old_version} -> {new_version}"
 commit = true
