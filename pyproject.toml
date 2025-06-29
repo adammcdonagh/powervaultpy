@@ -31,7 +31,8 @@ dev = [
   "pytest-env",
   "pytest-asyncio",
   "bumpver",
-  "pre-commit"
+  "pre-commit",
+  "python-dotenv",
 ]
 
 [project.urls]

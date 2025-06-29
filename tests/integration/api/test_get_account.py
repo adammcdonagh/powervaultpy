@@ -1,6 +1,7 @@
 import logging
 import re
 import time
+from dotenv import load_dotenv
 
 import pytest
 from integration import get_test_context
@@ -8,7 +9,12 @@ from integration import get_test_context
 from powervaultpy import PowerVault
 import os
 logging.basicConfig(level=logging.DEBUG)
-os.environ["API_KEY"] = "1cxUBGXEJS2cY2uUrc3ji1X91r6j7rg79qYsj28R"
+
+# Load the API key from a dotenv file
+DOTENV_FILE = os.path.join(os.path.dirname(__file__), "../../../.env")
+if os.path.exists(DOTENV_FILE):
+    load_dotenv(DOTENV_FILE)
+
 
 def test_get_account():
     # Arrange
@@ -25,6 +31,21 @@ def test_get_account():
 
     assert re.match("^\\d+$", str(account["id"]))
 
+def test_get_unit():
+    context = get_test_context()
+
+    client = PowerVault(context["api_key"])
+
+    # Act
+    account = client.get_account()
+    units = client.get_units(account["id"])
+
+    unit = client.get_unit(units[0]["id"])
+
+    assert unit is not None
+
+    assert "id" in unit
+    
 
 def test_get_units():
     # Arrange
@@ -145,10 +166,10 @@ def test_set_battery_state():
     account = client.get_account()
     units = client.get_units(account["id"])
 
-    battery_state = client.get_battery_state(units[0]["id"])
-    print(battery_state)
+    original_battery_state = client.get_battery_state(units[0]["id"])
+    print(original_battery_state)
 
-    assert battery_state is not None
+    assert original_battery_state is not None
 
     # Set the battery state to "only-charge"
     client.set_battery_state(units[0]["id"], "only-charge")
@@ -158,6 +179,13 @@ def test_set_battery_state():
     print(battery_state)
 
     assert battery_state == "only-charge"
+
+    # Set the battery back to what it was
+    client.set_battery_state(units[0]["id"], original_battery_state)
+    battery_state = client.get_battery_state(units[0]["id"])
+    print(battery_state)
+
+    assert battery_state == original_battery_state
 
 @pytest.mark.asyncio
 async def test_when_get_account_is_called_with_invalid_api_key():
