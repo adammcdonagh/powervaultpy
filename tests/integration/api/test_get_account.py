@@ -8,6 +8,7 @@ from integration import get_test_context
 
 from powervaultpy import PowerVault
 import os
+
 logging.basicConfig(level=logging.DEBUG)
 
 # Load the API key from a dotenv file
@@ -31,6 +32,7 @@ def test_get_account():
 
     assert re.match("^\\d+$", str(account["id"]))
 
+
 def test_get_unit():
     context = get_test_context()
 
@@ -45,7 +47,7 @@ def test_get_unit():
     assert unit is not None
 
     assert "id" in unit
-    
+
 
 def test_get_units():
     # Arrange
@@ -64,6 +66,7 @@ def test_get_units():
     assert re.match("^[^-]+-\\d+$", str(units[0]["id"]))
 
     print(units)
+
 
 def test_get_data():
     # Arrange
@@ -98,6 +101,7 @@ def test_get_data():
     # # Assert data contains 7 rows
     # assert len(data) == 7
 
+
 def test_get_totals_latest():
     context = get_test_context()
 
@@ -116,7 +120,7 @@ def test_get_totals_latest():
             totals.remove(row)
 
     totals = client.get_kwh(totals)
-    print (totals)
+    print(totals)
     assert totals
 
 
@@ -186,6 +190,7 @@ def test_set_battery_state():
     print(battery_state)
 
     assert battery_state == original_battery_state
+
 
 @pytest.mark.asyncio
 async def test_when_get_account_is_called_with_invalid_api_key():
