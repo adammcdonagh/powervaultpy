@@ -20,6 +20,7 @@ VALID_STATUSES = [
 _LOGGER = logging.getLogger(__name__)
 _LOGGER.setLevel(logging.INFO)
 
+
 class PowerVaultApiClientError(Exception):
     """Exception to indicate a general API error."""
 
@@ -32,12 +33,10 @@ class PowerVaultApiClientAuthenticationError(PowerVaultApiClientError):
     """Exception to indicate an authentication error."""
 
 
-class ServerError(Exception):
-    ...
+class ServerError(Exception): ...
 
 
-class RequestError(Exception):
-    ...
+class RequestError(Exception): ...
 
 
 class PowerVault:
@@ -45,29 +44,45 @@ class PowerVault:
 
     def __init__(
         self,
-        api_key: str,
+        api_key: str = None,
+        local_ip: str = None,
         session: requests.Session = None,
     ) -> None:
         """API Client."""
+        if not api_key and not local_ip:
+            raise ValueError("Either api_key or local_ip must be provided")
+        if api_key and local_ip:
+            raise ValueError("Only one of api_key or local_ip may be provided")
+
         self._api_key = api_key
+        self._local_ip = local_ip
         self._base_url = "https://rest-api.powervault.co.uk/v4"
         self._session = session or requests.Session()
 
-        self._session.headers.update(
-            {
-                "x-api-key": self._api_key,
-                "accept": "*/*",
-            }
-        )
+        if api_key:
+            self._session.headers.update(
+                {
+                    "x-api-key": self._api_key,
+                    "accept": "*/*",
+                }
+            )
 
-        # Get list of header keys, and remove any that are not in the list above
-        headers = list(self._session.headers.keys())
-        for key in headers:
-            if key not in ["x-api-key", "accept"]:
-                self._session.headers.pop(key)
+            # Get list of header keys, and remove any that are not in the list above
+            headers = list(self._session.headers.keys())
+            for key in headers:
+                if key not in ["x-api-key", "accept"]:
+                    self._session.headers.pop(key)
+
+    def _local_url(self, endpoint: str) -> str:
+        """Build a local API URL for legacy battery units."""
+        return f"http://{self._local_ip}:5000/api/{endpoint}"
 
     def get_units(self, account_id: int) -> any:
         """Get the user's units from the API."""
+        if self._local_ip:
+            raise PowerVaultApiClientError(
+                "get_units is not available on the local API"
+            )
         url = f"{self._base_url}/unit?customerAccountId={account_id}"
         units_response = self._read_response(self._session.get(url), url)
 
@@ -84,21 +99,24 @@ class PowerVault:
 
     def get_unit(self, unit_id: int) -> any:
         """Get the unit details from the API."""
+        if self._local_ip:
+            raise PowerVaultApiClientError("get_unit is not available on the local API")
         url = f"{self._base_url}/unit/{unit_id}"
         unit_response = self._read_response(self._session.get(url), url)
 
         _LOGGER.debug("Unit: %s", unit_response)
 
-        if (
-            unit_response is not None
-            and "unit" in unit_response
-        ):
+        if unit_response is not None and "unit" in unit_response:
             return unit_response["unit"]
 
         _LOGGER.error("Failed to retrieve unit")
 
     def get_account(self) -> any:
         """Get the user's account data from the API."""
+        if self._local_ip:
+            raise PowerVaultApiClientError(
+                "get_account is not available on the local API"
+            )
         url = f"{self._base_url}/customerAccount"
 
         account_response = self._read_response(self._session.get(url), url)
@@ -118,10 +136,14 @@ class PowerVault:
 
         _LOGGER.error("Failed to retrieve account")
 
-    def get_data(
-        self, unit_id: str, period: str = None
-    ) -> any:
+    def get_data(self, unit_id: str, period: str = None) -> any:
         """Get the latest metrics from the unit."""
+        if self._local_ip is not None:
+            url = self._local_url("latest-telemetry")
+            data_response = self._read_response(self._session.get(url), url)
+            _LOGGER.debug("Data: %s", data_response)
+            return data_response
+
         url = f"{self._base_url}/unit/{unit_id}/data"
 
         if period is not None:
@@ -172,41 +194,124 @@ class PowerVault:
                         totals[attribute] = 0
                     value = row[attribute]
                     if value:
-                        totals[attribute] += round(value / 1000 * (5/60), 2)
+                        totals[attribute] += round(value / 1000 * (5 / 60), 2)
         return totals
 
     def set_battery_state(self, unit_id: str, battery_state) -> bool:
         """Override the current battery status with the provided one."""
-        url = f"{self._base_url}/unit/{unit_id}/stateOverride"
+        start_time = datetime.now(pytz.timezone("UTC")).strftime("%Y-%m-%d %H:%M:%S")
+        end_time = (datetime.now(pytz.timezone("UTC")) + timedelta(hours=24)).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
 
-        start_time = datetime.now(pytz.timezone('UTC')).strftime("%Y-%m-%d %H:%M:%S")
-        end_time = (datetime.now(pytz.timezone('UTC')) + timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+        if self._local_ip is not None:
+            url = self._local_url("state-override")
+            payload = {
+                "start": start_time,
+                "end": end_time,
+                "state": battery_state,
+            }
+            _LOGGER.debug("Payload: %s", payload)
+            state_override_response = self._read_response(
+                self._session.post(url, json=payload), url
+            )
+            _LOGGER.debug("State Override: %s", state_override_response)
+            return (
+                state_override_response is not None
+                and state_override_response.get("status") == "ok"
+            )
+
+        url = f"{self._base_url}/unit/{unit_id}/stateOverride"
 
         payload = {
             "stateOverrides": [
-                {
-                    "start": start_time,
-                    "end": end_time,
-                    "state": battery_state
-                }
+                {"start": start_time, "end": end_time, "state": battery_state}
             ]
         }
 
         _LOGGER.debug("Payload: %s", payload)
 
         state_override_response = self._read_response(
-            self._session.post(url, json=payload), url)
+            self._session.post(url, json=payload), url
+        )
 
         _LOGGER.debug("State Override: %s", state_override_response)
 
-        if (state_override_response is not None) and ("stateOverrides" in state_override_response) and "message" in state_override_response and state_override_response["message"] == "success":
+        if (
+            (state_override_response is not None)
+            and ("stateOverrides" in state_override_response)
+            and "message" in state_override_response
+            and state_override_response["message"] == "success"
+        ):
             return True
         else:
             return False
 
-
     def get_battery_state(self, unit_id: str) -> any:
         """Query the schedule and overrides to determine the current battery state."""
+        # Get the current local datetime
+        current_dow = (
+            datetime.now(pytz.timezone("Europe/London")).strftime("%A").lower()
+        )
+        _LOGGER.debug("Current day of the week: %s", current_dow)
+        current_time = datetime.now(pytz.timezone("Europe/London"))
+
+        if self._local_ip is not None:
+            schedule_url = self._local_url("schedule")
+            schedule_response = self._read_response(
+                self._session.get(schedule_url), schedule_url
+            )
+            _LOGGER.debug("Schedule: %s", schedule_response)
+
+            state_override_url = self._local_url("state-override")
+            state_override_response = self._read_response(
+                self._session.get(state_override_url), state_override_url
+            )
+            _LOGGER.debug("State Override: %s", state_override_response)
+
+            current_state = None
+            # Local schedule is directly {monday: [...], ...} with no "schedule" wrapper
+            for schedule_dow, schedule in schedule_response.items():
+                if schedule_dow.lower() == current_dow:
+                    for days_events in schedule:
+                        _LOGGER.debug("Schedule: %s", days_events)
+                        start_time = datetime.strptime(
+                            days_events["start"], "%H:%M:%S"
+                        ).time()
+                        end_time = datetime.strptime(
+                            days_events["end"], "%H:%M:%S"
+                        ).time()
+                        if (
+                            current_time.time() >= start_time
+                            and current_time.time() <= end_time
+                        ):
+                            _LOGGER.debug("Current state: %s", days_events["state"])
+                            current_state = days_events["state"]
+                            break
+
+            # Local state override is a single object, not an array
+            if (
+                state_override_response is not None
+                and "state" in state_override_response
+            ):
+                start_time = datetime.strptime(
+                    state_override_response["start"], "%Y-%m-%d %H:%M:%S"
+                )
+                start_time = pytz.utc.localize(start_time)
+                end_time = datetime.strptime(
+                    state_override_response["end"], "%Y-%m-%d %H:%M:%S"
+                )
+                end_time = pytz.utc.localize(end_time)
+                start_time = start_time.astimezone()
+                end_time = end_time.astimezone()
+                if current_time >= start_time and current_time <= end_time:
+                    _LOGGER.debug("Current state: %s", state_override_response["state"])
+                    current_state = state_override_response["state"]
+
+            if current_state is None:
+                raise Exception("Failed to determine current state")
+            return current_state
+
         url = f"{self._base_url}/unit/{unit_id}/schedule"
 
         schedule_response = self._read_response(self._session.get(url), url)
@@ -216,15 +321,6 @@ class PowerVault:
 
         state_override_response = self._read_response(self._session.get(url), url)
         _LOGGER.debug("State Override: %s", state_override_response)
-
-        # Get the current local datetime
-        current_dow = datetime.now(pytz.timezone("Europe/London")).strftime("%A").lower()
-
-        # Log the current day of the week
-        _LOGGER.debug("Current day of the week: %s", current_dow)
-
-        # Get the current time
-        current_time = datetime.now(pytz.timezone('Europe/London'))
 
         current_state = None
         # Loop through the schedule to find the current state
@@ -239,17 +335,25 @@ class PowerVault:
                     ).time()
                     end_time = datetime.strptime(days_events["end"], "%H:%M:%S").time()
 
-                    if current_time.time() >= start_time and current_time.time() <= end_time:
+                    if (
+                        current_time.time() >= start_time
+                        and current_time.time() <= end_time
+                    ):
                         _LOGGER.debug("Current state: %s", days_events["state"])
                         current_state = days_events["state"]
                         break
 
         # If there is a state override, use that instead
         # These values are in UTC!
-        if state_override_response is not None and "stateOverrides" in state_override_response:
+        if (
+            state_override_response is not None
+            and "stateOverrides" in state_override_response
+        ):
             for state_override in state_override_response["stateOverrides"]:
                 # Check the start and end times
-                start_time = datetime.strptime(state_override["start"], "%Y-%m-%d %H:%M:%S")
+                start_time = datetime.strptime(
+                    state_override["start"], "%Y-%m-%d %H:%M:%S"
+                )
                 start_time = pytz.utc.localize(start_time)
                 end_time = datetime.strptime(state_override["end"], "%Y-%m-%d %H:%M:%S")
                 end_time = pytz.utc.localize(end_time)
@@ -268,6 +372,42 @@ class PowerVault:
 
         return current_state
 
+    def get_health(self) -> any:
+        """Get the health status from the local API."""
+        if not self._local_ip:
+            raise PowerVaultApiClientError(
+                "get_health is only available on the local API"
+            )
+        url = self._local_url("health")
+        return self._read_response(self._session.get(url), url)
+
+    def get_unit_id(self) -> any:
+        """Get the unit ID from the local API."""
+        if not self._local_ip:
+            raise PowerVaultApiClientError(
+                "get_unit_id is only available on the local API"
+            )
+        url = self._local_url("unit-id")
+        response = self._read_response(self._session.get(url), url)
+        if response is not None and "uid" in response:
+            return response["uid"]
+        _LOGGER.error("Failed to retrieve unit ID")
+
+    def get_chart_data(self, start: datetime, end: datetime) -> any:
+        """Get historical chart data from the local API for the given UTC time range.
+
+        Args:
+            start: Start of the time range (timezone-aware datetime, will be converted to UTC).
+            end: End of the time range (timezone-aware datetime, will be converted to UTC).
+        """
+        if not self._local_ip:
+            raise PowerVaultApiClientError(
+                "get_chart_data is only available on the local API"
+            )
+        start_utc = start.astimezone(pytz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        end_utc = end.astimezone(pytz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        url = self._local_url(f"chart-data?start={start_utc}&end={end_utc}")
+        return self._read_response(self._session.get(url), url)
 
     def _read_response(self, response: requests.Response, url):
         """Reads the response, logging any json errors"""
