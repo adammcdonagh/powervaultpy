@@ -393,6 +393,22 @@ class PowerVault:
             return response["uid"]
         _LOGGER.error("Failed to retrieve unit ID")
 
+    def get_chart_data(self, start: datetime, end: datetime) -> any:
+        """Get historical chart data from the local API for the given UTC time range.
+
+        Args:
+            start: Start of the time range (timezone-aware datetime, will be converted to UTC).
+            end: End of the time range (timezone-aware datetime, will be converted to UTC).
+        """
+        if not self._local_ip:
+            raise PowerVaultApiClientError(
+                "get_chart_data is only available on the local API"
+            )
+        start_utc = start.astimezone(pytz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        end_utc = end.astimezone(pytz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        url = self._local_url(f"chart-data?start={start_utc}&end={end_utc}")
+        return self._read_response(self._session.get(url), url)
+
     def _read_response(self, response: requests.Response, url):
         """Reads the response, logging any json errors"""
 

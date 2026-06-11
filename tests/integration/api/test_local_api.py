@@ -7,8 +7,10 @@ Tests are skipped automatically if those variables are not present.
 
 import logging
 import os
+from datetime import datetime, timedelta
 
 import pytest
+import pytz
 from dotenv import load_dotenv
 
 from powervaultpy import PowerVault, VALID_STATUSES
@@ -102,3 +104,25 @@ def test_set_battery_state_local_and_read_back(client):
     assert success is True
     new_state = client.get_battery_state(UNIT_ID)
     assert new_state == original_state
+
+
+def test_get_chart_data(client):
+    end = datetime.now(pytz.utc)
+    start = end - timedelta(hours=24)
+
+    result = client.get_chart_data(start, end)
+
+    assert result is not None
+    assert isinstance(result, list)
+    assert len(result) > 0
+
+
+def test_get_chart_data_records_have_timestamp(client):
+    end = datetime.now(pytz.utc)
+    start = end - timedelta(hours=1)
+
+    result = client.get_chart_data(start, end)
+
+    assert result is not None
+    for record in result:
+        assert "timestamp" in record

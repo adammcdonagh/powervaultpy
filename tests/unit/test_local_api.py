@@ -231,6 +231,64 @@ class TestGetUnitId:
 
 
 # ---------------------------------------------------------------------------
+# get_chart_data
+# ---------------------------------------------------------------------------
+
+CHART_DATA_RESPONSE = [
+    {"timestamp": 1781180400.0, "batteryPower": -200, "gridPower": 50, "socAverage": 80},
+    {"timestamp": 1781180700.0, "batteryPower": -180, "gridPower": 45, "socAverage": 79},
+]
+
+
+class TestGetChartData:
+    def test_returns_chart_data(self, local_client):
+        local_client._session.get = MagicMock(return_value=_make_response(CHART_DATA_RESPONSE))
+
+        start = datetime(2026, 6, 10, 23, 0, 0, tzinfo=pytz.utc)
+        end = datetime(2026, 6, 11, 23, 0, 0, tzinfo=pytz.utc)
+
+        result = local_client.get_chart_data(start, end)
+
+        local_client._session.get.assert_called_once_with(
+            f"http://{LOCAL_IP}:5000/api/chart-data?start=2026-06-10T23:00:00Z&end=2026-06-11T23:00:00Z"
+        )
+        assert result == CHART_DATA_RESPONSE
+
+    def test_converts_non_utc_datetime_to_utc(self, local_client):
+        local_client._session.get = MagicMock(return_value=_make_response(CHART_DATA_RESPONSE))
+
+        london = pytz.timezone("Europe/London")
+        # BST is UTC+1, so midnight BST = 23:00 UTC previous day
+        start = london.localize(datetime(2026, 6, 11, 0, 0, 0))
+        end = london.localize(datetime(2026, 6, 12, 0, 0, 0))
+
+        local_client.get_chart_data(start, end)
+
+        url_called = local_client._session.get.call_args[0][0]
+        assert "start=2026-06-10T23:00:00Z" in url_called
+        assert "end=2026-06-11T23:00:00Z" in url_called
+
+    def test_raises_when_called_on_cloud_client(self, cloud_client):
+        from powervaultpy.powervault import PowerVaultApiClientError
+
+        start = datetime(2026, 6, 10, 23, 0, 0, tzinfo=pytz.utc)
+        end = datetime(2026, 6, 11, 23, 0, 0, tzinfo=pytz.utc)
+
+        with pytest.raises(PowerVaultApiClientError):
+            cloud_client.get_chart_data(start, end)
+
+    def test_raises_on_server_error(self, local_client):
+        from powervaultpy.powervault import ServerError
+        local_client._session.get = MagicMock(return_value=_make_response({}, status_code=500))
+
+        start = datetime(2026, 6, 10, 23, 0, 0, tzinfo=pytz.utc)
+        end = datetime(2026, 6, 11, 23, 0, 0, tzinfo=pytz.utc)
+
+        with pytest.raises(ServerError):
+            local_client.get_chart_data(start, end)
+
+
+# ---------------------------------------------------------------------------
 # get_data
 # ---------------------------------------------------------------------------
 
