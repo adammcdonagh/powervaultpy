@@ -125,4 +125,5 @@ def test_get_chart_data_records_have_timestamp(client):
 
     assert result is not None
     for record in result:
-        assert "timestamp" in record
+        for item in record:
+            assert "timestamp" in item
