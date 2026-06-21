@@ -275,12 +275,26 @@ class PowerVault:
                 if schedule_dow.lower() == current_dow:
                     for days_events in schedule:
                         _LOGGER.debug("Schedule: %s", days_events)
-                        start_time = datetime.strptime(
-                            days_events["start"], "%H:%M:%S"
-                        ).time()
-                        end_time = datetime.strptime(
-                            days_events["end"], "%H:%M:%S"
-                        ).time()
+                        # Time is sometimes in HH:SS format, sometimes in HH:MM:SS format, so we need to parse it accordingly
+                        try:
+                            start_time_parse = datetime.strptime(
+                                days_events["start"], "%H:%M:%S"
+                            )
+                        except ValueError:
+                            start_time_parse = datetime.strptime(
+                                days_events["start"], "%H:%M"
+                            )
+                        try:
+                            end_time_parse = datetime.strptime(
+                                days_events["end"], "%H:%M:%S"
+                            )
+                        except ValueError:
+                            end_time_parse = datetime.strptime(
+                                days_events["end"], "%H:%M"
+                            )
+                        start_time = start_time_parse.time()
+                        end_time = end_time_parse.time()
+
                         if (
                             current_time.time() >= start_time
                             and current_time.time() <= end_time
