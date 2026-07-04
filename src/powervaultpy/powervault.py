@@ -136,6 +136,26 @@ class PowerVault:
 
         _LOGGER.error("Failed to retrieve account")
 
+    def get_platform(self) -> str:
+        """Get the platform type from the API.
+        
+        This is only applicable via the local API
+
+        Returns:
+            str: The platform type (e.g., "p3", "p3x").
+        """
+        if self._local_ip is None:
+            raise PowerVaultApiClientError(
+                "get_platform is only available on the local API"
+            )
+        url = self._local_url("platform")
+        platform_response = self._read_response(self._session.get(url), url)
+        _LOGGER.debug("Platform: %s", platform_response)
+        if platform_response is not None and "platform" in platform_response:
+            return platform_response["platform"]
+        _LOGGER.error("Failed to retrieve platform")
+
+
     def get_data(self, unit_id: str, period: str = None) -> any:
         """Get the latest metrics from the unit."""
         if self._local_ip is not None:

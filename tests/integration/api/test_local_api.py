@@ -56,6 +56,12 @@ def test_get_unit_id_matches_known_unit(client):
 
     assert result == UNIT_ID
 
+def test_get_platform_local(client):
+    result = client.get_platform()
+
+    assert result is not None
+    assert isinstance(result, str)
+    assert result in ["p3", "p3x"]
 
 def test_get_data_local(client):
     result = client.get_data(UNIT_ID)
